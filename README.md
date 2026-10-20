@@ -19,7 +19,7 @@ Windows、macOS 和 Linux 使用相同的命令注册 GitHub marketplace 并安�
 
 ```console
 codex plugin marketplace add overstarry/codex-thread-title-organizer
-codex plugin add codex-thread-title-organizer@ming-local
+codex plugin add codex-thread-title-organizer@overstarry
 ```
 
 仓库当前为私有仓库，执行安装命令前需要确保当前 Git 环境有权访问该仓库。安装后重启 Codex Desktop，并检查、信任 Hook。Codex Desktop 进程需要继承以下环境变量：
