@@ -15,13 +15,14 @@
 
 ## 安装
 
-注册本地 marketplace：
+Windows、macOS 和 Linux 使用相同的命令注册 GitHub marketplace 并安装插件：
 
-```powershell
-codex plugin marketplace add "C:\path\to\codex-thread-title-organizer"
+```console
+codex plugin marketplace add overstarry/codex-thread-title-organizer
+codex plugin add codex-thread-title-organizer@ming-local
 ```
 
-重启 Codex Desktop，在插件界面安装 `Thread Title Organizer`，检查并信任 Hook。Codex Desktop 进程需要继承以下环境变量：
+仓库当前为私有仓库，执行安装命令前需要确保当前 Git 环境有权访问该仓库。安装后重启 Codex Desktop，并检查、信任 Hook。Codex Desktop 进程需要继承以下环境变量：
 
 ```text
 TYPESAFE_API_KEY
