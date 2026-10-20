@@ -1,0 +1,17 @@
+{
+  "name": "ming-local",
+  "plugins": [
+    {
+      "name": "codex-thread-title-organizer",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

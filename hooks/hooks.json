@@ -1,0 +1,29 @@
+{
+  "description": "Capture the latest user prompt and classify the thread after each completed turn.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoLogo -NoProfile -NonInteractive -File \"${PLUGIN_ROOT}/scripts/capture-prompt.ps1\"",
+            "timeout": 5,
+            "statusMessage": "Capturing thread context"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoLogo -NoProfile -NonInteractive -File \"${PLUGIN_ROOT}/scripts/classify-title.ps1\"",
+            "timeout": 30,
+            "statusMessage": "Classifying thread title"
+          }
+        ]
+      }
+    ]
+  }
+}
