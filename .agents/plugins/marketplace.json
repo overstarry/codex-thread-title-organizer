@@ -1,5 +1,8 @@
 {
-  "name": "overstarry",
+  "name": "starry-tools",
+  "interface": {
+    "displayName": "Starry Tools"
+  },
   "plugins": [
     {
       "name": "codex-thread-title-organizer",
