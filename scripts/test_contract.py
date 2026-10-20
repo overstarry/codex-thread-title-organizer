@@ -1,10 +1,14 @@
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 
+import capture_prompt
+import classify_title
 from common import (
     new_jev_request,
     new_rename_continuation,
@@ -111,10 +115,88 @@ def test_hook_subprocess_contract():
         )
 
 
+def run_hook_main(main, hook_input):
+    previous_stdin = sys.stdin
+    output = io.StringIO()
+    try:
+        sys.stdin = io.StringIO(json.dumps(hook_input))
+        with redirect_stdout(output):
+            exit_code = main()
+    finally:
+        sys.stdin = previous_stdin
+
+    assert_equal(0, exit_code, "Hook main must exit cleanly.")
+    return json.loads(output.getvalue()) if output.getvalue().strip() else None
+
+
+def test_same_classification_retries_on_later_user_turn():
+    response = {
+        "model": "jev-test",
+        "answers": {
+            "phase": {"choice": "wip", "confidence": 0.95},
+            "kind": {"choice": "bug", "confidence": 0.99},
+        },
+    }
+    previous_invoke = classify_title.invoke_jev_classification
+    previous_plugin_data = os.environ.get("PLUGIN_DATA")
+    previous_api_key = os.environ.get("TYPESAFE_API_KEY")
+
+    with tempfile.TemporaryDirectory() as plugin_data:
+        try:
+            os.environ["PLUGIN_DATA"] = plugin_data
+            os.environ["TYPESAFE_API_KEY"] = "test-key"
+            classify_title.invoke_jev_classification = lambda request, key: response
+
+            first_prompt = {
+                "session_id": "multi-turn-session",
+                "prompt": "Investigate the first failure",
+            }
+            run_hook_main(capture_prompt.main, first_prompt)
+            first_stop = run_hook_main(
+                classify_title.main,
+                {
+                    "session_id": "multi-turn-session",
+                    "stop_hook_active": False,
+                    "last_assistant_message": "Investigation is in progress.",
+                },
+            )
+            assert_equal("block", first_stop.get("decision"), "First turn must rename.")
+
+            second_prompt = {
+                "session_id": "multi-turn-session",
+                "prompt": "Continue investigating the second failure",
+            }
+            run_hook_main(capture_prompt.main, second_prompt)
+            second_stop = run_hook_main(
+                classify_title.main,
+                {
+                    "session_id": "multi-turn-session",
+                    "stop_hook_active": False,
+                    "last_assistant_message": "Investigation is still in progress.",
+                },
+            )
+            assert_equal(
+                "block",
+                second_stop.get("decision"),
+                "A later user turn must be allowed to retry the same classification.",
+            )
+        finally:
+            classify_title.invoke_jev_classification = previous_invoke
+            if previous_plugin_data is None:
+                os.environ.pop("PLUGIN_DATA", None)
+            else:
+                os.environ["PLUGIN_DATA"] = previous_plugin_data
+            if previous_api_key is None:
+                os.environ.pop("TYPESAFE_API_KEY", None)
+            else:
+                os.environ["TYPESAFE_API_KEY"] = previous_api_key
+
+
 def main():
     test_decision_policy()
     test_request_and_continuation_contract()
     test_hook_subprocess_contract()
+    test_same_classification_retries_on_later_user_turn()
     print("Contract tests passed.")
 
 
