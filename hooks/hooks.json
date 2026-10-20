@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoLogo -NoProfile -NonInteractive -File \"${PLUGIN_ROOT}/scripts/capture-prompt.ps1\"",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/capture_prompt.py\"",
+            "commandWindows": "py -3 \"${PLUGIN_ROOT}/scripts/capture_prompt.py\"",
             "timeout": 5,
             "statusMessage": "Capturing thread context"
           }
@@ -18,7 +19,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoLogo -NoProfile -NonInteractive -File \"${PLUGIN_ROOT}/scripts/classify-title.ps1\"",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/classify_title.py\"",
+            "commandWindows": "py -3 \"${PLUGIN_ROOT}/scripts/classify_title.py\"",
             "timeout": 30,
             "statusMessage": "Classifying thread title"
           }

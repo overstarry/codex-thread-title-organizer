@@ -2,3 +2,5 @@
 .env.*
 sessions/
 *.log
+__pycache__/
+*.py[cod]

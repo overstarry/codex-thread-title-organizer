@@ -9,7 +9,7 @@ Configure this desktop-only plugin without exposing credentials or modifying unr
 
 ## Setup
 
-1. Confirm that `pwsh` is available.
+1. Confirm that Python 3.9 or later is available as `python3` on macOS/Linux or `py -3` on Windows. No third-party Python packages are required.
 2. Confirm that `TYPESAFE_API_KEY` is set in the environment inherited by the Codex desktop app. Never print or persist its value.
 3. Confirm that Codex hooks are enabled.
 4. Ask the user to review and trust this plugin's hooks in the Codex hook UI. Do not bypass hook trust.
@@ -19,7 +19,7 @@ The optional `TYPESAFE_MODEL` environment variable overrides the default `jev-la
 
 ## Diagnose
 
-Run `scripts/test-contract.ps1` first. Run `scripts/test-live.ps1` only when the user expects a live TypeSafe API request and `TYPESAFE_API_KEY` is available.
+Run `scripts/test_contract.py` first with the platform-specific Python command. Run `scripts/test_live.py` only when the user expects a live TypeSafe API request and `TYPESAFE_API_KEY` is available.
 
 Plugin runtime state is stored under `PLUGIN_DATA/sessions`. Do not inspect or expose stored prompt text unless the user explicitly asks for debugging that content.
 

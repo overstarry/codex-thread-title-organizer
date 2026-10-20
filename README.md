@@ -2,6 +2,8 @@
 
 使用 TypeSafe Jev 判断 Codex 对话的当前状态，并通过 Codex 原生线程能力为标题维护唯一的分类前缀。
 
+支持 Windows、macOS 和 Linux。运行脚本仅依赖 Python 3.9 或更高版本的标准库，不需要 PowerShell 或额外 Python 包。
+
 ## 工作方式
 
 1. `UserPromptSubmit` Hook 保存当前用户请求。
@@ -27,14 +29,30 @@ TYPESAFE_API_KEY
 
 可以使用 `TYPESAFE_MODEL` 覆盖默认模型 `jev-latest`。
 
+运行时命令按平台选择：
+
+- macOS/Linux：`python3`
+- Windows：Python Launcher 的 `py -3`
+
 ## 验证
 
+macOS/Linux：
+
+```bash
+python3 scripts/test_contract.py
+python3 scripts/test_live.py
+```
+
+Windows：
+
 ```powershell
-pwsh -NoProfile -File .\scripts\test-contract.ps1
-pwsh -NoProfile -File .\scripts\test-live.ps1
+py -3 scripts\test_contract.py
+py -3 scripts\test_live.py
 ```
 
 第二个命令会调用 TypeSafe API。
+
+仓库的 GitHub Actions 会在 Ubuntu、macOS 和 Windows 上执行离线契约测试。
 
 ## 标题分类
 

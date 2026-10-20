@@ -1,11 +1,13 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-thread-title-organizer",
-  "version": "0.1.0",
-  "description": "Classify Codex chat state with Jev and keep one status prefix on the native thread title.",
+  "version": "0.2.0",
+  "description": "Classify Codex chat state with Jev and keep one status prefix on the native thread title across Windows, macOS, and Linux.",
   "author": {
     "name": "Ming"
   },
+  "homepage": "https://github.com/overstarry/codex-thread-title-organizer",
+  "repository": "https://github.com/overstarry/codex-thread-title-organizer",
   "keywords": [
     "codex",
     "thread-title",
