@@ -30,6 +30,14 @@ TYPESAFE_API_KEY
 
 可以使用 `TYPESAFE_MODEL` 覆盖默认模型 `jev-latest`。
 
+Hook 信任入口目前只在 Codex CLI 中提供，不在 Codex Desktop 的聊天输入框中提供。打开终端进入交互式 CLI：
+
+```console
+codex
+```
+
+然后输入 `/hooks`，确认 `UserPromptSubmit` 和 `Stop` 下出现 `codex-thread-title-organizer@overstarry`，逐项检查并信任。完成后彻底退出并重新打开 Codex Desktop。
+
 运行时命令按平台选择：
 
 - macOS/Linux：`python3`

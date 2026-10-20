@@ -1,0 +1,65 @@
+{
+  "name": "codex-thread-title-organizer",
+  "version": "0.2.1",
+  "description": "Classify Codex chat state with Jev and keep one status prefix on the native thread title across Windows, macOS, and Linux.",
+  "author": {
+    "name": "Ming"
+  },
+  "homepage": "https://github.com/overstarry/codex-thread-title-organizer",
+  "repository": "https://github.com/overstarry/codex-thread-title-organizer",
+  "keywords": [
+    "codex",
+    "thread-title",
+    "typesafe",
+    "jev"
+  ],
+  "skills": "./skills/",
+  "onboardingSkill": "./skills/setup/SKILL.md",
+  "requires_local_executor": true,
+  "hooks": {
+    "hooks": {
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${PLUGIN_ROOT}/scripts/capture_prompt.py\"",
+              "commandWindows": "py -3 \"${PLUGIN_ROOT}/scripts/capture_prompt.py\"",
+              "timeout": 5,
+              "statusMessage": "Capturing thread context"
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${PLUGIN_ROOT}/scripts/classify_title.py\"",
+              "commandWindows": "py -3 \"${PLUGIN_ROOT}/scripts/classify_title.py\"",
+              "timeout": 30,
+              "statusMessage": "Classifying thread title"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "interface": {
+    "displayName": "Thread Title Organizer",
+    "shortDescription": "Prefix Codex chat titles by current state",
+    "longDescription": "Uses TypeSafe Jev to classify the current chat state and asks Codex to update the native thread title with one deterministic prefix.",
+    "developerName": "Ming",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Set up automatic thread title prefixes.",
+      "Refresh the current thread title prefix."
+    ],
+    "brandColor": "#10A37F"
+  }
+}
