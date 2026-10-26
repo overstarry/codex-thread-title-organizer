@@ -31,13 +31,6 @@ def main():
         state["session_id"] = session_id
         state["prompt"] = prompt
         state["captured_at"] = datetime.now(timezone.utc).isoformat()
-        for key in (
-            "last_requested_label",
-            "last_requested_prefix",
-            "last_confidence",
-            "last_decision_source",
-        ):
-            state.pop(key, None)
         write_session_state(state_path, state)
     except Exception as error:
         write_hook_diagnostic(str(error))

@@ -44,6 +44,7 @@ def main():
         request_body = new_jev_request(
             user_prompt=prompt,
             assistant_message=str(hook_input.get("last_assistant_message", "")),
+            previous_label=state.get("last_requested_label"),
             model=model,
         )
         response = invoke_jev_classification(request_body, api_key)

@@ -21,10 +21,8 @@ def main():
 
     result = {
         "model": response.get("model"),
-        "phase": response["answers"]["phase"]["choice"],
-        "phase_confidence": response["answers"]["phase"]["confidence"],
-        "kind": response["answers"]["kind"]["choice"],
-        "kind_confidence": response["answers"]["kind"]["confidence"],
+        "title_action": response["answers"]["title_action"]["choice"],
+        "title_action_confidence": response["answers"]["title_action"]["confidence"],
         "selected_label": decision["label"],
         "selected_prefix": decision["prefix"],
     }

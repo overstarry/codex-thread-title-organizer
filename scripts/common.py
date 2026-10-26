@@ -92,23 +92,37 @@ def limit_text(value, maximum_length=8000):
     return value[:maximum_length]
 
 
-def new_jev_request(user_prompt, assistant_message, model="jev-latest"):
+def new_jev_request(
+    user_prompt,
+    assistant_message,
+    model="jev-latest",
+    previous_label=None,
+):
     return {
         "state": {
             "user_prompt": limit_text(user_prompt),
             "assistant_message": limit_text(assistant_message),
+            "previous_label": previous_label,
         },
         "model": model,
         "questions": {
-            "phase": {
+            "title_action": {
                 "type": "choice",
                 "instructions": (
-                    "Which single workflow phase best describes the thread after the "
-                    "assistant response? Prefer explicit evidence in assistant_message. "
-                    "When several apply, use this precedence: blocked, validate, done, "
-                    "wip, plan, unknown."
+                    "Choose the title action after the assistant response. Choose keep "
+                    "when previous_label is still the best label, when the best label "
+                    "would equal previous_label, or when the supplied state does not "
+                    "support a confident change. Otherwise choose the single new label. "
+                    "Prefer explicit evidence in assistant_message. When several new "
+                    "labels apply, use this precedence: blocked, validate, done, wip, "
+                    "plan, then the durable task kind."
                 ),
                 "criteria": {
+                    "keep": (
+                        "Keep the current title prefix. The previous label remains "
+                        "appropriate, the new best label would be identical, or evidence "
+                        "for a material label change is insufficient."
+                    ),
                     "blocked": (
                         "Progress cannot continue without user input, approval, credentials, "
                         "or an external state change. Do not use for ordinary uncertainty."
@@ -129,18 +143,6 @@ def new_jev_request(user_prompt, assistant_message, model="jev-latest"):
                         "The thread is primarily planning, designing, researching, or "
                         "evaluating options before implementation."
                     ),
-                    "unknown": (
-                        "No workflow phase is supported strongly enough by the supplied state."
-                    ),
-                },
-            },
-            "kind": {
-                "type": "choice",
-                "instructions": (
-                    "What is the primary task kind in user_prompt and assistant_message? "
-                    "Choose the closest durable category, or unknown when none fits."
-                ),
-                "criteria": {
                     "bug": (
                         "Diagnosing or fixing incorrect behavior, failures, regressions, "
                         "crashes, or performance defects."
@@ -160,9 +162,6 @@ def new_jev_request(user_prompt, assistant_message, model="jev-latest"):
                     "ops": (
                         "Infrastructure, deployment, runtime operations, observability, "
                         "configuration, or incident response."
-                    ),
-                    "unknown": (
-                        "No task kind is supported strongly enough by the supplied state."
                     ),
                 },
             },
@@ -208,7 +207,7 @@ def _candidate_decision(answer, threshold, source):
     except (TypeError, ValueError):
         return None
 
-    if choice == "unknown" or confidence < threshold or choice not in PREFIX_BY_LABEL:
+    if choice == "keep" or confidence < threshold or choice not in PREFIX_BY_LABEL:
         return None
 
     return {
@@ -221,18 +220,11 @@ def _candidate_decision(answer, threshold, source):
 
 def resolve_title_decision(
     response,
-    phase_confidence_threshold=0.80,
-    kind_confidence_threshold=0.75,
+    confidence_threshold=0.80,
 ):
     answers = response.get("answers", {}) if isinstance(response, dict) else {}
-    phase_decision = _candidate_decision(
-        answers.get("phase"), phase_confidence_threshold, "phase"
-    )
-    if phase_decision is not None:
-        return phase_decision
-
     return _candidate_decision(
-        answers.get("kind"), kind_confidence_threshold, "kind"
+        answers.get("title_action"), confidence_threshold, "title_action"
     )
 
 

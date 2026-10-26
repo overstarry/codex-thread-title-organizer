@@ -25,30 +25,29 @@ def assert_equal(expected, actual, message):
 
 
 def test_decision_policy():
-    phase_response = {
+    changed_response = {
         "answers": {
-            "phase": {"choice": "blocked", "confidence": 0.93},
-            "kind": {"choice": "bug", "confidence": 0.99},
+            "title_action": {"choice": "blocked", "confidence": 0.93},
         }
     }
-    phase_decision = resolve_title_decision(phase_response)
-    assert_equal("blocked", phase_decision["label"], "Phase must take precedence.")
-    assert_equal("⏸", phase_decision["prefix"], "Blocked prefix mismatch.")
+    changed_decision = resolve_title_decision(changed_response)
+    assert_equal("blocked", changed_decision["label"], "Changed label mismatch.")
+    assert_equal("⏸", changed_decision["prefix"], "Blocked prefix mismatch.")
 
-    kind_response = {
+    keep_response = {
         "answers": {
-            "phase": {"choice": "wip", "confidence": 0.42},
-            "kind": {"choice": "feature", "confidence": 0.88},
+            "title_action": {"choice": "keep", "confidence": 0.96},
         }
     }
-    kind_decision = resolve_title_decision(kind_response)
-    assert_equal("feature", kind_decision["label"], "Kind fallback mismatch.")
-    assert_equal("✨", kind_decision["prefix"], "Feature prefix mismatch.")
+    assert_equal(
+        None,
+        resolve_title_decision(keep_response),
+        "Keep must not request a rename.",
+    )
 
     uncertain_response = {
         "answers": {
-            "phase": {"choice": "unknown", "confidence": 0.98},
-            "kind": {"choice": "chat", "confidence": 0.31},
+            "title_action": {"choice": "chat", "confidence": 0.31},
         }
     }
     assert_equal(
@@ -65,9 +64,17 @@ def test_request_and_continuation_contract():
     if "Do not modify any other thread" not in continuation:
         raise AssertionError("Continuation scope guard is missing.")
 
-    request = new_jev_request("Implement the feature.", "Implementation is complete.")
+    request = new_jev_request(
+        "Implement the feature.",
+        "Implementation is complete.",
+        previous_label="wip",
+    )
     assert_equal("jev-latest", request["model"], "Default model mismatch.")
-    assert_equal(2, len(request["questions"]), "Jev questions must be batched.")
+    assert_equal("wip", request["state"]["previous_label"], "Previous label missing.")
+    assert_equal(1, len(request["questions"]), "Jev must use one title action.")
+    criteria = request["questions"]["title_action"]["criteria"]
+    if "keep" not in criteria:
+        raise AssertionError("Title action must include keep.")
 
 
 def test_hook_subprocess_contract():
@@ -129,12 +136,17 @@ def run_hook_main(main, hook_input):
     return json.loads(output.getvalue()) if output.getvalue().strip() else None
 
 
-def test_same_classification_retries_on_later_user_turn():
-    response = {
+def test_only_changed_classification_starts_continuation():
+    wip_response = {
         "model": "jev-test",
         "answers": {
-            "phase": {"choice": "wip", "confidence": 0.95},
-            "kind": {"choice": "bug", "confidence": 0.99},
+            "title_action": {"choice": "wip", "confidence": 0.95},
+        },
+    }
+    done_response = {
+        "model": "jev-test",
+        "answers": {
+            "title_action": {"choice": "done", "confidence": 0.97},
         },
     }
     previous_invoke = classify_title.invoke_jev_classification
@@ -145,7 +157,14 @@ def test_same_classification_retries_on_later_user_turn():
         try:
             os.environ["PLUGIN_DATA"] = plugin_data
             os.environ["TYPESAFE_API_KEY"] = "test-key"
-            classify_title.invoke_jev_classification = lambda request, key: response
+            requests = []
+            responses = iter((wip_response, wip_response, done_response))
+
+            def invoke(request, key):
+                requests.append(request)
+                return next(responses)
+
+            classify_title.invoke_jev_classification = invoke
 
             first_prompt = {
                 "session_id": "multi-turn-session",
@@ -161,6 +180,11 @@ def test_same_classification_retries_on_later_user_turn():
                 },
             )
             assert_equal("block", first_stop.get("decision"), "First turn must rename.")
+            assert_equal(
+                None,
+                requests[0]["state"]["previous_label"],
+                "First turn must not invent a previous label.",
+            )
 
             second_prompt = {
                 "session_id": "multi-turn-session",
@@ -176,10 +200,35 @@ def test_same_classification_retries_on_later_user_turn():
                 },
             )
             assert_equal(
-                "block",
-                second_stop.get("decision"),
-                "A later user turn must be allowed to retry the same classification.",
+                {"continue": True},
+                second_stop,
+                "An unchanged label must not spend a Codex continuation.",
             )
+            assert_equal(
+                "wip",
+                requests[1]["state"]["previous_label"],
+                "The previous label must survive a later user turn.",
+            )
+
+            third_prompt = {
+                "session_id": "multi-turn-session",
+                "prompt": "Finish the implementation",
+            }
+            run_hook_main(capture_prompt.main, third_prompt)
+            third_stop = run_hook_main(
+                classify_title.main,
+                {
+                    "session_id": "multi-turn-session",
+                    "stop_hook_active": False,
+                    "last_assistant_message": "Implementation is complete.",
+                },
+            )
+            assert_equal(
+                "block",
+                third_stop.get("decision"),
+                "A changed label must request a rename.",
+            )
+            assert_equal(3, len(requests), "Jev must still run once per real turn.")
         finally:
             classify_title.invoke_jev_classification = previous_invoke
             if previous_plugin_data is None:
@@ -196,7 +245,7 @@ def main():
     test_decision_policy()
     test_request_and_continuation_contract()
     test_hook_subprocess_contract()
-    test_same_classification_retries_on_later_user_turn()
+    test_only_changed_classification_starts_continuation()
     print("Contract tests passed.")
 
 
