@@ -76,6 +76,14 @@ def test_request_and_continuation_contract():
     if "keep" not in criteria:
         raise AssertionError("Title action must include keep.")
 
+    initial_request = new_jev_request(
+        "Implement the feature.",
+        "Implementation is complete.",
+    )
+    initial_criteria = initial_request["questions"]["title_action"]["criteria"]
+    if "keep" in initial_criteria:
+        raise AssertionError("An initial title action must not allow keep.")
+
 
 def test_hook_subprocess_contract():
     with tempfile.TemporaryDirectory() as plugin_data:
@@ -185,6 +193,8 @@ def test_only_changed_classification_starts_continuation():
                 requests[0]["state"]["previous_label"],
                 "First turn must not invent a previous label.",
             )
+            if "keep" in requests[0]["questions"]["title_action"]["criteria"]:
+                raise AssertionError("First turn must require an initial label.")
 
             second_prompt = {
                 "session_id": "multi-turn-session",

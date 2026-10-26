@@ -98,72 +98,89 @@ def new_jev_request(
     model="jev-latest",
     previous_label=None,
 ):
+    normalized_previous_label = (
+        previous_label if previous_label in PREFIX_BY_LABEL else None
+    )
+    criteria = {
+        "blocked": (
+            "Progress cannot continue without user input, approval, credentials, "
+            "or an external state change. Do not use for ordinary uncertainty."
+        ),
+        "validate": (
+            "Implementation or analysis is complete enough to await review, "
+            "acceptance, or verification."
+        ),
+        "done": (
+            "The requested work is complete and the assistant reports the result, "
+            "including any bounded limitations."
+        ),
+        "wip": (
+            "The assistant is actively implementing, investigating, or executing "
+            "the requested work."
+        ),
+        "plan": (
+            "The thread is primarily planning, designing, researching, or "
+            "evaluating options before implementation."
+        ),
+        "bug": (
+            "Diagnosing or fixing incorrect behavior, failures, regressions, "
+            "crashes, or performance defects."
+        ),
+        "chat": (
+            "General discussion, question answering, explanation, or advice "
+            "without a more specific production task."
+        ),
+        "art": (
+            "Creating or editing visual design, images, illustrations, branding, "
+            "or other creative media."
+        ),
+        "feature": (
+            "Building or extending product behavior, application code, "
+            "integrations, or automation."
+        ),
+        "ops": (
+            "Infrastructure, deployment, runtime operations, observability, "
+            "configuration, or incident response."
+        ),
+    }
+    if normalized_previous_label is not None:
+        criteria = {
+            "keep": (
+                "Keep the current title prefix because previous_label remains the "
+                "best label or evidence for a material label change is insufficient."
+            ),
+            **criteria,
+        }
+
+    if normalized_previous_label is None:
+        instructions = (
+            "Choose the single initial title label after the assistant response. "
+            "Prefer explicit evidence in assistant_message. When several labels "
+            "apply, use this precedence: blocked, validate, done, wip, plan, then "
+            "the durable task kind."
+        )
+    else:
+        instructions = (
+            "Choose the title action after the assistant response. Choose keep when "
+            "previous_label is still the best label, when the best label would equal "
+            "previous_label, or when the supplied state does not support a confident "
+            "change. Otherwise choose the single new label. Prefer explicit evidence "
+            "in assistant_message. When several new labels apply, use this precedence: "
+            "blocked, validate, done, wip, plan, then the durable task kind."
+        )
+
     return {
         "state": {
             "user_prompt": limit_text(user_prompt),
             "assistant_message": limit_text(assistant_message),
-            "previous_label": previous_label,
+            "previous_label": normalized_previous_label,
         },
         "model": model,
         "questions": {
             "title_action": {
                 "type": "choice",
-                "instructions": (
-                    "Choose the title action after the assistant response. Choose keep "
-                    "when previous_label is still the best label, when the best label "
-                    "would equal previous_label, or when the supplied state does not "
-                    "support a confident change. Otherwise choose the single new label. "
-                    "Prefer explicit evidence in assistant_message. When several new "
-                    "labels apply, use this precedence: blocked, validate, done, wip, "
-                    "plan, then the durable task kind."
-                ),
-                "criteria": {
-                    "keep": (
-                        "Keep the current title prefix. The previous label remains "
-                        "appropriate, the new best label would be identical, or evidence "
-                        "for a material label change is insufficient."
-                    ),
-                    "blocked": (
-                        "Progress cannot continue without user input, approval, credentials, "
-                        "or an external state change. Do not use for ordinary uncertainty."
-                    ),
-                    "validate": (
-                        "Implementation or analysis is complete enough to await review, "
-                        "acceptance, or verification."
-                    ),
-                    "done": (
-                        "The requested work is complete and the assistant reports the result, "
-                        "including any bounded limitations."
-                    ),
-                    "wip": (
-                        "The assistant is actively implementing, investigating, or executing "
-                        "the requested work."
-                    ),
-                    "plan": (
-                        "The thread is primarily planning, designing, researching, or "
-                        "evaluating options before implementation."
-                    ),
-                    "bug": (
-                        "Diagnosing or fixing incorrect behavior, failures, regressions, "
-                        "crashes, or performance defects."
-                    ),
-                    "chat": (
-                        "General discussion, question answering, explanation, or advice "
-                        "without a more specific production task."
-                    ),
-                    "art": (
-                        "Creating or editing visual design, images, illustrations, branding, "
-                        "or other creative media."
-                    ),
-                    "feature": (
-                        "Building or extending product behavior, application code, "
-                        "integrations, or automation."
-                    ),
-                    "ops": (
-                        "Infrastructure, deployment, runtime operations, observability, "
-                        "configuration, or incident response."
-                    ),
-                },
+                "instructions": instructions,
+                "criteria": criteria,
             },
         },
     }

@@ -1,6 +1,6 @@
 {
   "name": "codex-thread-title-organizer",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Classify Codex chat state with Jev and keep one status prefix on the native thread title across Windows, macOS, and Linux.",
   "author": {
     "name": "Ming"
