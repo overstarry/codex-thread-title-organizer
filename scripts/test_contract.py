@@ -27,27 +27,27 @@ def assert_equal(expected, actual, message):
 def test_decision_policy():
     changed_response = {
         "answers": {
-            "title_action": {"choice": "blocked", "confidence": 0.93},
+            "desired_label": {"choice": "blocked", "confidence": 0.93},
         }
     }
     changed_decision = resolve_title_decision(changed_response)
     assert_equal("blocked", changed_decision["label"], "Changed label mismatch.")
     assert_equal("⏸", changed_decision["prefix"], "Blocked prefix mismatch.")
 
-    keep_response = {
+    moderate_response = {
         "answers": {
-            "title_action": {"choice": "keep", "confidence": 0.96},
+            "desired_label": {"choice": "chat", "confidence": 0.55},
         }
     }
     assert_equal(
-        None,
-        resolve_title_decision(keep_response),
-        "Keep must not request a rename.",
+        "chat",
+        resolve_title_decision(moderate_response)["label"],
+        "A moderate-confidence title decision must remain actionable.",
     )
 
     uncertain_response = {
         "answers": {
-            "title_action": {"choice": "chat", "confidence": 0.31},
+            "desired_label": {"choice": "chat", "confidence": 0.31},
         }
     }
     assert_equal(
@@ -67,22 +67,14 @@ def test_request_and_continuation_contract():
     request = new_jev_request(
         "Implement the feature.",
         "Implementation is complete.",
-        previous_label="wip",
     )
     assert_equal("jev-latest", request["model"], "Default model mismatch.")
-    assert_equal("wip", request["state"]["previous_label"], "Previous label missing.")
-    assert_equal(1, len(request["questions"]), "Jev must use one title action.")
-    criteria = request["questions"]["title_action"]["criteria"]
-    if "keep" not in criteria:
-        raise AssertionError("Title action must include keep.")
-
-    initial_request = new_jev_request(
-        "Implement the feature.",
-        "Implementation is complete.",
-    )
-    initial_criteria = initial_request["questions"]["title_action"]["criteria"]
-    if "keep" in initial_criteria:
-        raise AssertionError("An initial title action must not allow keep.")
+    if "previous_label" in request["state"]:
+        raise AssertionError("Jev must classify absolute state without label anchoring.")
+    assert_equal(1, len(request["questions"]), "Jev must use one label choice.")
+    criteria = request["questions"]["desired_label"]["criteria"]
+    if "keep" in criteria:
+        raise AssertionError("An absolute title classification must not allow keep.")
 
 
 def test_hook_subprocess_contract():
@@ -148,13 +140,13 @@ def test_only_changed_classification_starts_continuation():
     wip_response = {
         "model": "jev-test",
         "answers": {
-            "title_action": {"choice": "wip", "confidence": 0.95},
+            "desired_label": {"choice": "wip", "confidence": 0.55},
         },
     }
     done_response = {
         "model": "jev-test",
         "answers": {
-            "title_action": {"choice": "done", "confidence": 0.97},
+            "desired_label": {"choice": "done", "confidence": 0.55},
         },
     }
     previous_invoke = classify_title.invoke_jev_classification
@@ -188,13 +180,23 @@ def test_only_changed_classification_starts_continuation():
                 },
             )
             assert_equal("block", first_stop.get("decision"), "First turn must rename.")
+            if "previous_label" in requests[0]["state"]:
+                raise AssertionError("First turn must not send a previous label.")
+            if "keep" in requests[0]["questions"]["desired_label"]["criteria"]:
+                raise AssertionError("First turn must require an absolute label.")
+
+            state_path = Path(plugin_data) / "sessions" / "multi-turn-session.json"
+            first_state = json.loads(state_path.read_text(encoding="utf-8"))
             assert_equal(
-                None,
-                requests[0]["state"]["previous_label"],
-                "First turn must not invent a previous label.",
+                "wip",
+                first_state["last_observed_label"],
+                "Observed label diagnostics mismatch.",
             )
-            if "keep" in requests[0]["questions"]["title_action"]["criteria"]:
-                raise AssertionError("First turn must require an initial label.")
+            assert_equal(
+                0.55,
+                first_state["last_observed_confidence"],
+                "Observed confidence diagnostics mismatch.",
+            )
 
             second_prompt = {
                 "session_id": "multi-turn-session",
@@ -214,11 +216,8 @@ def test_only_changed_classification_starts_continuation():
                 second_stop,
                 "An unchanged label must not spend a Codex continuation.",
             )
-            assert_equal(
-                "wip",
-                requests[1]["state"]["previous_label"],
-                "The previous label must survive a later user turn.",
-            )
+            if "previous_label" in requests[1]["state"]:
+                raise AssertionError("Later turns must not anchor Jev to an old label.")
 
             third_prompt = {
                 "session_id": "multi-turn-session",

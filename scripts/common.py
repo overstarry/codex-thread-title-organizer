@@ -96,23 +96,19 @@ def new_jev_request(
     user_prompt,
     assistant_message,
     model="jev-latest",
-    previous_label=None,
 ):
-    normalized_previous_label = (
-        previous_label if previous_label in PREFIX_BY_LABEL else None
-    )
     criteria = {
         "blocked": (
             "Progress cannot continue without user input, approval, credentials, "
             "or an external state change. Do not use for ordinary uncertainty."
         ),
         "validate": (
-            "Implementation or analysis is complete enough to await review, "
-            "acceptance, or verification."
+            "The work is implemented or analyzed, but the assistant explicitly says "
+            "that user acceptance, testing, or another verification step still remains."
         ),
         "done": (
-            "The requested work is complete and the assistant reports the result, "
-            "including any bounded limitations."
+            "The assistant is giving the final answer, reports the requested conclusion, "
+            "or says the requested work is complete, including bounded limitations."
         ),
         "wip": (
             "The assistant is actively implementing, investigating, or executing "
@@ -143,43 +139,22 @@ def new_jev_request(
             "configuration, or incident response."
         ),
     }
-    if normalized_previous_label is not None:
-        criteria = {
-            "keep": (
-                "Keep the current title prefix because previous_label remains the "
-                "best label or evidence for a material label change is insufficient."
-            ),
-            **criteria,
-        }
-
-    if normalized_previous_label is None:
-        instructions = (
-            "Choose the single initial title label after the assistant response. "
-            "Prefer explicit evidence in assistant_message. When several labels "
-            "apply, use this precedence: blocked, validate, done, wip, plan, then "
-            "the durable task kind."
-        )
-    else:
-        instructions = (
-            "Choose the title action after the assistant response. Choose keep when "
-            "previous_label is still the best label, when the best label would equal "
-            "previous_label, or when the supplied state does not support a confident "
-            "change. Otherwise choose the single new label. Prefer explicit evidence "
-            "in assistant_message. When several new labels apply, use this precedence: "
-            "blocked, validate, done, wip, plan, then the durable task kind."
-        )
-
     return {
         "state": {
             "user_prompt": limit_text(user_prompt),
             "assistant_message": limit_text(assistant_message),
-            "previous_label": normalized_previous_label,
         },
         "model": model,
         "questions": {
-            "title_action": {
+            "desired_label": {
                 "type": "choice",
-                "instructions": instructions,
+                "instructions": (
+                    "Which single label best describes the thread after the assistant "
+                    "response? Classify the current absolute state independently of any "
+                    "previous title. Prefer explicit evidence in assistant_message. When "
+                    "several labels apply, use this precedence: blocked, done, validate, "
+                    "wip, plan, then the durable task kind."
+                ),
                 "criteria": criteria,
             },
         },
@@ -214,7 +189,7 @@ def invoke_jev_classification(request_body, api_key):
     raise RuntimeError("Jev request failed without an exception.")
 
 
-def _candidate_decision(answer, threshold, source):
+def _title_observation(answer, source):
     if not isinstance(answer, dict):
         return None
 
@@ -224,7 +199,7 @@ def _candidate_decision(answer, threshold, source):
     except (TypeError, ValueError):
         return None
 
-    if choice == "keep" or confidence < threshold or choice not in PREFIX_BY_LABEL:
+    if choice not in PREFIX_BY_LABEL:
         return None
 
     return {
@@ -235,14 +210,19 @@ def _candidate_decision(answer, threshold, source):
     }
 
 
+def read_title_observation(response):
+    answers = response.get("answers", {}) if isinstance(response, dict) else {}
+    return _title_observation(answers.get("desired_label"), "desired_label")
+
+
 def resolve_title_decision(
     response,
-    confidence_threshold=0.80,
+    confidence_threshold=0.45,
 ):
-    answers = response.get("answers", {}) if isinstance(response, dict) else {}
-    return _candidate_decision(
-        answers.get("title_action"), confidence_threshold, "title_action"
-    )
+    observation = read_title_observation(response)
+    if observation is None or observation["confidence"] < confidence_threshold:
+        return None
+    return observation
 
 
 def new_rename_continuation(session_id, prefix, label):

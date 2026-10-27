@@ -8,6 +8,7 @@ from common import (
     new_jev_request,
     new_rename_continuation,
     read_session_state,
+    read_title_observation,
     resolve_title_decision,
     session_state_path,
     write_hook_diagnostic,
@@ -44,16 +45,21 @@ def main():
         request_body = new_jev_request(
             user_prompt=prompt,
             assistant_message=str(hook_input.get("last_assistant_message", "")),
-            previous_label=state.get("last_requested_label"),
             model=model,
         )
         response = invoke_jev_classification(request_body, api_key)
+        observation = read_title_observation(response)
         decision = resolve_title_decision(response)
 
         state["last_model"] = str(response.get("model", ""))
         state["last_classified_at"] = datetime.now(timezone.utc).isoformat()
+        if observation is not None:
+            state["last_observed_label"] = observation["label"]
+            state["last_observed_confidence"] = observation["confidence"]
         if decision is None:
-            state["last_outcome"] = "no_change"
+            state["last_outcome"] = (
+                "invalid_response" if observation is None else "low_confidence"
+            )
             write_session_state(state_path, state)
             write_hook_json({"continue": True})
             return 0

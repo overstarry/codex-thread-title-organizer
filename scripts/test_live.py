@@ -21,8 +21,8 @@ def main():
 
     result = {
         "model": response.get("model"),
-        "title_action": response["answers"]["title_action"]["choice"],
-        "title_action_confidence": response["answers"]["title_action"]["confidence"],
+        "desired_label": response["answers"]["desired_label"]["choice"],
+        "desired_label_confidence": response["answers"]["desired_label"]["confidence"],
         "selected_label": decision["label"],
         "selected_prefix": decision["prefix"],
     }
